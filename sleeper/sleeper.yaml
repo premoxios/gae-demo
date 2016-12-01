@@ -1,6 +1,4 @@
-application: preaton-playground
-module: sleeper
-version: v1 
+service: sleeper
 runtime: python27
 api_version: 1
 threadsafe: true

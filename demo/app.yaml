@@ -1,6 +1,4 @@
-application: preaton-playground
-module: default
-version: v1 
+service: default
 runtime: python27
 api_version: 1
 threadsafe: false
