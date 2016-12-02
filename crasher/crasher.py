@@ -9,12 +9,21 @@ class NotReachableException(Exception) :
 
 @app.route('/')
 def crash():
-    # Crash x% of time
-    do_crash = True if (random.random() * 10 < 1) else False
+    start = int(random.random() * 10) + 10
+    end = start + int(random.random() * 10) + 1
+    x = [int(x*random.random()) for x in range(start, end)]
+    logging.info('Input: %s' % x)
+    return check_for_crash(x, 0)
+
+def check_for_crash(x, i):
+    if (len(x) <= i):
+      return 'EOF'
+    do_crash = True if (x[i] == i) else False
     if do_crash:
-        _ = 1/0
-        raise NotReachableException('The server should have crashed.')
-    return 'Did not crash, this time.'
+      _ = 1/0
+      raise NotReachableException('The server should have crashed.')
+    msg = check_for_crash(x, i+1)
+    return '%d/%d, %s' % (i, x[i], msg)
 
 @app.errorhandler(500)
 def server_error(e):
