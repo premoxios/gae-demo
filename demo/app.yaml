@@ -16,4 +16,6 @@ libraries:
 env_variables:
   LOCAL_SLEEPER_SERVICE_URL: "http://localhost:8081"
   SLEEPER_SERVICE_URL: "https://sleeper.preaton-playground.appspot.com/"
+  LOCAL_CRASH_SERVICE_URL: "http://localhost:8082"
+  CRASH_SERVICE_URL: "https://crasher.preaton-playground.appspot.com/"
   
