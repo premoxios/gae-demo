@@ -1,0 +1,4 @@
+queue:
+- name: loader
+  mode: push
+  rate: 500/s

@@ -1,0 +1,5 @@
+cron:
+- description: traffic generator job
+  url: /
+  target: loader
+  schedule: every 1 minutes synchronized
