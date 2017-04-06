@@ -24,11 +24,21 @@ def get_traffic_qps():
     traffic_qps = traffic_qps * (random.uniform(0.99, 1.01))
     return traffic_qps
 
-@app.route('/')
-def loader():
-    # This handler is invoked every minute by cron (see cron.yaml).
-    # Generate traffic uniformly for one minute by posting requests to a
-    # push taskqueue (see queue.yaml).
+
+@app.route("/cron")
+def cron():
+  # Long-running tasks seem to make cron schedule erratically, so use cron to
+  # trigger the long-running task to make traffic. See cron.yaml and queue.yaml.
+  task = taskqueue.Task(url="/schedule", target="loader")
+  task.add(queue_name="schedule")
+  return "OK"
+
+
+@app.route("/schedule", methods=['POST',])
+def schedule():
+    # Upon receiving a message from the push taskqueue, generate traffic
+    # uniformly for one minute by posting requests to a different push
+    # taskqueue (see queue.yaml).
     start = time.time()
     traffic_qps_goal = get_traffic_qps()
     traffic_count_minute_goal =  int(traffic_qps_goal*60)
@@ -45,8 +55,8 @@ def loader():
             time.sleep(1.0/traffic_qps_goal)
             continue
         for _ in range(traffic_count_goal-traffic_count_current):
-            task = taskqueue.Task(url='/make_traffic', target='loader')
-            task.add(queue_name='loader')
+            task = taskqueue.Task(url='/traffic', target='loader')
+            task.add(queue_name='traffic')
         traffic_count_current = traffic_count_goal
         if traffic_count_current >= traffic_count_minute_goal:
             break
@@ -63,15 +73,15 @@ def loader():
     return msg
 
 
-@app.route('/make_traffic', methods=['POST'])  # push taskqueues use POST
-def handler():
+@app.route('/traffic', methods=['POST',])
+def traffic():
   # Generate load with variable response time.
   # Latency=500ms average, 300 ms stddev.
   mu = 500
   sigma = 300
-  latency_ms = int(random.gauss(mu, sigma))
+  latency_ms = max(int(random.gauss(mu, sigma)), 10)  # no negative latencies
   time.sleep(latency_ms/1000)
-  return "Latency: %d" % latency_ms 
+  return "Latency: %d ms" % latency_ms
 
 @app.errorhandler(500)
 def server_error(e):
