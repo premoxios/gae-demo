@@ -1,6 +1,7 @@
 import logging
-from flask import Flask
 import random
+import time
+from flask import Flask
 
 app = Flask(__name__)
 
@@ -9,21 +10,29 @@ class NotReachableException(Exception) :
 
 @app.route('/')
 def crash():
-    start = int(random.random() * 10) + 10
-    end = start + int(random.random() * 10) + 1
-    x = [int(x*random.random()) for x in range(start, end)]
-    logging.info('Input: %s' % x)
-    return check_for_crash(x, 0)
+    now = time.localtime()
+    bursty_crash(now)
+    return random_crash(now)
 
-def check_for_crash(x, i):
-    if (len(x) <= i):
-      return 'EOF'
-    do_crash = True if (x[i] == i) else False
-    if do_crash:
-      _ = 1/0
-      raise NotReachableException('The server should have crashed.')
-    msg = check_for_crash(x, i+1)
-    return '%d/%d, %s' % (i, x[i], msg)
+def bursty_crash(now):
+    # Create a burst of errors for 5 minutes every other hour.
+    if (now.tm_hour % 2):
+        if (now.tm_min< 5):
+            if (random.random() < 0.8):
+                _ = 1/0
+                raise NotReachableException('Server should have crashed.')
+
+def random_crash(now):
+    # Deterministically select an error rate based on the current time
+    # in minutes. Then crash with that probability.
+    random.seed(now.tm_hour*10 + now.tm_min)
+    error_rate = random.randint(2, 7) / 100.0
+    random.seed()  # Re-seed based on current time
+    rnd = random.random()
+    if (rnd < error_rate):
+        _ = 1/0
+        raise NotReadableException('Server shold have crashed.')
+    return 'Now: %s, ErrorRate: %f, Random: %.2f' % (now, error_rate, rnd)
 
 @app.errorhandler(500)
 def server_error(e):
