@@ -69,7 +69,7 @@ def schedule():
            (start, end, (end-start),
            traffic_qps_goal, traffic_count_minute_goal,
            (traffic_count_current/(end-start)), traffic_count_current)) 
-    print msg
+    print(msg)
     return msg
 
 
