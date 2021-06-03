@@ -1,6 +1,6 @@
 import os
 import random
-from google.appengine.api import urlfetch
+import requests
 
 def getEnvForDeployment(envvar):
     env = os.getenv('SERVER_SOFTWARE')
@@ -10,23 +10,24 @@ def getEnvForDeployment(envvar):
   
 def mysleep():
     sleeper_url = getEnvForDeployment('SLEEPER_SERVICE_URL')
-    rpcs = []
-    for _ in range(0, random.randint(1, 5)):
-        sleep_rpc = urlfetch.create_rpc()
-        urlfetch.make_fetch_call(sleep_rpc, sleeper_url)
-        rpcs.append(sleep_rpc) 
 
-    response = '<p>Issued %d calls.</p>' % len(rpcs)
+    # Create several async requests to the sleeper service.
+    responses = []
+    with requests.session() as session:
+        for _ in range(0, random.randint(1, 5)):
+            responses.append(session.get(sleeper_url))
+
+    response = '<p>Issued %d calls.</p>' % len(responses)
     response += '<ol>'
-    for rpc in rpcs:
-        rpc.wait()
+    for r in responses:
+        # Block until the async request completes
+        rc = r.status_code
         
         try:
-            result = rpc.get_result()
-            if result.status_code == 200:
-                response += '<li>Sleep success! : %s</li>' % result.content
+            if rc == 200:
+                response += '<li>Sleep success! : %s</li>' % r.text
             else:
-                response += '<li>Sleep failed: %s</li>' % result.status_code
+                response += '<li>Sleep failed: %s</li>' % rc
         except Exception as e:
             return "Exception: %s" % e
     response += '</ol>'
@@ -35,12 +36,9 @@ def mysleep():
 
 def crash():
     crash_url = getEnvForDeployment('CRASH_SERVICE_URL')
-    crash_rpc = urlfetch.create_rpc()
-    urlfetch.make_fetch_call(crash_rpc, crash_url)
-    crash_rpc.wait()
+    response = requests.get(crash_url)
     try:
-        result = crash_rpc.get_result()
-        if result.status_code == 200:
+        if response.status_code == 200:
             return 'Did not crash.'
         else:
             return 'Crashed!'
