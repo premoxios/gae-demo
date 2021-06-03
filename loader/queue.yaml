@@ -1,7 +1,0 @@
-queue:
-- name: schedule
-  mode: push
-  rate: 5/s
-- name: traffic
-  mode: push
-  rate: 500/s
