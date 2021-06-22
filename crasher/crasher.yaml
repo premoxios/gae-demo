@@ -1,8 +1,7 @@
 service: crasher
-runtime: python27
-api_version: 1
-threadsafe: true
+runtime: python37
+entrypoint: gunicorn -b:8080 crasher:app
 
 handlers:
 - url: /.*
-  script: crasher.app
+  script: auto
