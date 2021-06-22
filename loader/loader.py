@@ -1,11 +1,16 @@
 import logging
 from flask import Flask
-from google.appengine.api import taskqueue
+from google.cloud import tasks_v2
+import json
 import math
 import random
 import time
 
 app = Flask(__name__)
+task_client = tasks_v2.CloudTasksClient()
+
+PROJECT_ID = 'preaton-playground'
+LOCATION = 'us-central1'
 
 def get_traffic_qps():
     # Compute traffic target in qps. Traffic is diurnal and sinusoidal traffic
@@ -28,13 +33,22 @@ def get_traffic_qps():
 @app.route("/cron")
 def cron():
   # Long-running tasks seem to make cron schedule erratically, so use cron to
-  # trigger the long-running task to make traffic. See cron.yaml and queue.yaml.
-  task = taskqueue.Task(url="/schedule", target="loader")
-  task.add(queue_name="schedule")
+  # trigger the long-running task to make traffic. See cron.yaml.
+  queue_name = task_client.queue_path(PROJECT_ID, LOCATION, 'schedule')
+  task = {
+    'app_engine_http_request':
+    {
+        # 'app_engine_routing': {'service': 'loader'},
+        'http_method': tasks_v2.HttpMethod.POST,
+        'relative_uri': '/schedule'
+    }
+    }
+  response = task_client.create_task(parent=queue_name, task=task)
+  logging.info("Cron response: %s" % response)
   return "OK"
 
 
-@app.route("/schedule", methods=['POST',])
+@app.route("/schedule", methods=['POST', ])
 def schedule():
     # Upon receiving a message from the push taskqueue, generate traffic
     # uniformly for one minute by posting requests to a different push
@@ -46,6 +60,7 @@ def schedule():
           "start=%.3f, qps=%.3f, queries_goal=%d" %
           (start, traffic_qps_goal, traffic_count_minute_goal))
 
+    queue_name = task_client.queue_path(PROJECT_ID, LOCATION, 'traffic')
     traffic_count_current = 0
     while True:
         now = time.time()
@@ -55,8 +70,21 @@ def schedule():
             time.sleep(1.0/traffic_qps_goal)
             continue
         for _ in range(traffic_count_goal-traffic_count_current):
-            task = taskqueue.Task(url='/traffic', target='loader')
-            task.add(queue_name='traffic')
+            payload = {
+                'goal': traffic_count_goal,
+                'count': traffic_count_current
+                }
+            task = {
+              'app_engine_http_request':
+              {
+                  # 'app_engine_routing': {'service': 'loader'},
+                  'http_method': tasks_v2.HttpMethod.POST,
+                  'relative_uri': '/traffic'
+              }
+              }
+            task['app_engine_http_request']['headers'] = {'Content-type': 'application/json'}
+            task['app_engine_http_request']['body'] = json.dumps(payload).encode()
+            response = task_client.create_task(parent=queue_name, task=task)
         traffic_count_current = traffic_count_goal
         if traffic_count_current >= traffic_count_minute_goal:
             break
@@ -69,7 +97,7 @@ def schedule():
            (start, end, (end-start),
            traffic_qps_goal, traffic_count_minute_goal,
            (traffic_count_current/(end-start)), traffic_count_current)) 
-    print msg
+    print(msg)
     return msg
 
 

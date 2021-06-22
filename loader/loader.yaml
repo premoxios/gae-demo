@@ -1,8 +1,7 @@
 service: loader
-runtime: python27
-api_version: 1
-threadsafe: true
+runtime: python39
+entrypoint: gunicorn --timeout 90 --bind :$PORT loader:app
 
 handlers:
 - url: /.*
-  script: loader.app
+  script: auto  
